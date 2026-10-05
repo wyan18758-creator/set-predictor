@@ -30,7 +30,7 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0330": False}
 
-# --- Fetch from EODHD API Safely ---
+# --- Fetch Live SET Value Directly ---
 def fetch_live_set_value():
     api_token = "6ac1dfd4509a07.37594523"
     url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
@@ -47,9 +47,9 @@ def fetch_live_set_value():
             if val_str and val_str != "NA":
                 return float(val_str)
     except Exception as e:
-        st.error(f"API Error: {e}")
+        pass
     
-    return 1563.91  # Default fallback
+    return None  # Fallback အတု မသုံးတော့ဘဲ None ပြန်မည်
 
 # --- Advanced Helper Function: Momentum & Decimal Last Digit ---
 def generate_momentum_candidates(value_list):
@@ -97,7 +97,8 @@ current_live_val = fetch_live_set_value()
 st.markdown("---")
 top_col1, top_col2 = st.columns(2)
 with top_col1:
-    st.metric(label="🔴 REALTIME LIVE SET VALUE", value=f"{current_live_val:,.2f}" if current_live_val > 0 else "N/A")
+    display_val = f"{current_live_val:,.2f}" if current_live_val is not None else "Live တန်ဖိုး ရယူနေသည်..."
+    st.metric(label="🔴 REALTIME LIVE SET VALUE", value=display_val)
 with top_col2:
     st.metric(label="⏱️ လက်ရှိ မြန်မာစံတော်ချိန်", value=current_time_str)
 st.markdown("---")
@@ -114,12 +115,12 @@ afternoon_trigger_time = datetime.strptime("15:30:00", "%H:%M:%S").time()
 afternoon_market_close = datetime.strptime("16:10:00", "%H:%M:%S").time()
 
 if morning_market_open <= now_time <= morning_market_close:
-    if current_live_val > 0:
+    if current_live_val is not None:
         if not st.session_state.morning_collected_values or st.session_state.morning_collected_values[-1] != current_live_val:
             st.session_state.morning_collected_values.append(current_live_val)
 
 if afternoon_market_open <= now_time <= afternoon_market_close:
-    if current_live_val > 0:
+    if current_live_val is not None:
         if not st.session_state.afternoon_collected_values or st.session_state.afternoon_collected_values[-1] != current_live_val:
             st.session_state.afternoon_collected_values.append(current_live_val)
 
@@ -166,10 +167,8 @@ if st.session_state.morning_collected_values:
 if now_time >= morning_trigger_time:
     m_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning (12:01 Target)"), None)
     if m_item:
-        cand_val = m_item['Candidates']
-        mom_val = m_item['Momentum Status']
-        st.success(f"🎯 ၁၁:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{cand_val}**")
-        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{mom_val}**")
+        st.success(f"🎯 ၁၁:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{m_item['Candidates']}**")
+        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{m_item['Momentum Status']}**")
 else:
     st.info("⏳ မနက် ၁၁:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
 
@@ -191,10 +190,8 @@ if st.session_state.afternoon_collected_values:
 if now_time >= afternoon_trigger_time:
     a_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon (4:10 Target)"), None)
     if a_item:
-        cand_val_a = a_item['Candidates']
-        mom_val_a = a_item['Momentum Status']
-        st.success(f"🎯 ၃:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{cand_val_a}**")
-        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{mom_val_a}**")
+        st.success(f"🎯 ၃:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{a_item['Candidates']}**")
+        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{a_item['Momentum Status']}**")
 else:
     st.info("⏳ နေ့လယ် ၃:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
 
