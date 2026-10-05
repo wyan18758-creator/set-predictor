@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import pytz
+from datetime import datetime, timedelta, timezone
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -18,9 +17,9 @@ st.markdown(
     "ဈေးကွက်ဖွင့်ချိန်မှ ပိတ်ချိန်အထိ Live Value များကို တိုက်ရိုက်ပြသပေးခြင်းနှင့် သတ်မှတ်ချိန်အလိုက် Candidate ၅ လုံး အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။"
 )
 
-# --- Timezone Setup (Myanmar Time) ---
-mm_tz = pytz.timezone('Asia/Yangon')
-current_time_mm = datetime.now(mm_tz)
+# --- Timezone Setup (Myanmar Time = UTC +6:30) ---
+mm_offset = timezone(timedelta(hours=6, minutes=30))
+current_time_mm = datetime.now(mm_offset)
 current_time_str = current_time_mm.strftime("%H:%M:%S")
 current_date_str = current_time_mm.strftime("%Y-%m-%d")
 
@@ -39,14 +38,10 @@ def fetch_live_market_value():
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # SET website ပေါ်ရှိ Live index သို့မဟုတ် total value ကို ရှာဖွေခြင်း
-            # Website structure အလိုက် class သို့မဟုတ် tag များကို ဖတ်ယူသည်
-            val_element = soup.find('h3', class_='market-info-value') # သို့မဟုတ် သင့်တော်သော selector
+            val_element = soup.find('h3', class_='market-info-value')
             if val_element:
                 return val_element.text.strip() + " (Live)"
             
-            # Fallback ရှာဖွေမှု (General search for numbers with commas/decimals)
             for span in soup.find_all(['span', 'div', 'h3']):
                 text = span.text.strip()
                 if ',' in text and '.' in text and len(text) < 15:
@@ -74,7 +69,7 @@ afternoon_cutoff = datetime.strptime("15:35:00", "%H:%M:%S").time()
 
 # ၁၁:၃၀ တိတိရောက်လျှင် မနက်ပိုင်း ၁၂:၀၁ အတွက် အလိုအလျောက် တွက်မည်
 if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1130"]:
-    morning_candidates = "24680"  # တွက်ချက်ထွက်လာသည့် Candidate ၅ လုံး
+    morning_candidates = "24680"
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Session (12:01 Target)"), None)
     if not existing:
         st.session_state.history_data.append({
@@ -87,7 +82,7 @@ if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1
 
 # ၃:၃၅ တိတိရောက်လျှင် ညနေပိုင်း ၄:၃၀ အတွက် အလိုအလျောက် တွက်မည်
 if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afternoon_0335"]:
-    afternoon_candidates = "13579"  # တွက်ချက်ထွက်လာသည့် Candidate ၅ လုံး
+    afternoon_candidates = "13579"
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Session (4:30 Target)"), None)
     if not existing:
         st.session_state.history_data.append({
@@ -102,7 +97,7 @@ if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afterno
 # 🌅 မနက်ပိုင်း (Morning Session - Target: 12:01 PM)
 # ==========================================
 st.subheader("🌅 Morning Session (Target: 12:01 PM)")
-st.text("• စောင့်ကြည့်မည့်ကာလ: မနက်ဈေးကွက်စဖွင့်ချိန် မှ ၁၁:၃၀ AM အထိ\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၁၁:၃၀ AM တွင် ၁၂:၀၁ အတွက် ၅ လုံး ထွက်မည်\n• Live Value ပြသမှု: မနက်ဈေးကွက်ပိတ်ချိန်အထိ တိုက်ရိုက်ပြနေမည်")
+st.text("• စောင့်ကြည့်မည့်ကာလ: မနက်ဈေးကွက်စဖွင့်ချိန် မှ ၁၁:၃၀ AM အထိ\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၁၁:၃၀ AM တွင် ၁၂၀၁ အတွက် ၅ လုံး ထွက်မည်\n• Live Value ပြသမှု: မနက်ဈေးကွက်ပိတ်ချိန်အထိ တိုက်ရိုက်ပြနေမည်")
 
 # ==========================================
 # 🌇 ညနေပိုင်း (Afternoon Session - Target: 4:30 PM)
