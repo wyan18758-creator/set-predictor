@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("📈 SET Total Value Prediction Dashboard")
-st.markdown("Live Value ကို တိုက်ရိုက်ပြသပြီး သတ်မှတ်ချိန်များတွင် Candidate များကို အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။")
+st.markdown("API မှ Real Data အတိုင်း တိုက်ရိုက်ပြသပြီး သတ်မှတ်ချိန်များတွင် Candidate များကို အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။")
 
 # --- Timezone Setup (Myanmar Time = UTC +6:30) ---
 mm_offset = timezone(timedelta(hours=6, minutes=30))
@@ -33,7 +33,7 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0335": False}
 
-# --- Fetch Real Live Value from API ---
+# --- Fetch Real Live Value from API (No scaling, pure raw data) ---
 def fetch_live_total_value_from_eodhd():
     api_token = "6ac1dfd4509a07.37594523"
     url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
@@ -42,6 +42,7 @@ def fetch_live_total_value_from_eodhd():
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
+            # API မှလာသော တန်ဖိုးအစစ်ကို တိုက်ရိုက်ယူမည် ( කිසිදු တွက်ချက်ပြင်ဆင်ခြင်း မပါ )
             val = float(data.get("close", data.get("price", 0)))
             if val > 0:
                 return val
@@ -77,7 +78,7 @@ current_live_val = fetch_live_total_value_from_eodhd()
 
 col_a, col_b = st.columns(2)
 with col_a:
-    st.metric(label="API မှ ရလာသော Live Value", value=f"{current_live_val:,.2f}" if current_live_val > 0 else "N/A")
+    st.metric(label="API မှ ရလာသော Real Live Value", value=f"{current_live_val:,.2f}" if current_live_val > 0 else "N/A")
 with col_b:
     st.metric(label="လက်ရှိ မြန်မာစံတော်ချိန်", value=current_time_str)
 
@@ -100,40 +101,35 @@ if afternoon_start <= now_time <= afternoon_cutoff:
         st.session_state.afternoon_collected_values.append(current_live_val)
 
 # --- Automatic Triggers at Target Times ---
-morning_candidates_display = "သတ်မှတ်ချိန် (၁၁:၃၀ AM) ရောက်မှ ထွက်ပါမည်"
-afternoon_candidates_display = "သတ်မှတ်ချိန် (၃:၃၅ PM) ရောက်မှ ထွက်ပါမည်"
+if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1130"]:
+    morning_candidates = generate_candidates_from_average(st.session_state.morning_collected_values)
+    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), None)
+    if not existing:
+        st.session_state.history_data.append({
+            "Date": current_date_str,
+            "Session": "Morning Closing (12:01 PM Target)",
+            "Candidate Set": morning_candidates,
+            "Actual Value": "Pending"
+        })
+    st.session_state.auto_triggered["Morning_1130"] = True
 
-if now_time >= morning_cutoff:
-    if not st.session_state.auto_triggered["Morning_1130"]:
-        morning_candidates = generate_candidates_from_average(st.session_state.morning_collected_values)
-        existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), None)
-        if not existing:
-            st.session_state.history_data.append({
-                "Date": current_date_str,
-                "Session": "Morning Closing (12:01 PM Target)",
-                "Candidate Set": morning_candidates,
-                "Actual Value": "Pending"
-            })
-        st.session_state.auto_triggered["Morning_1130"] = True
-
-if now_time >= afternoon_cutoff:
-    if not st.session_state.auto_triggered["Afternoon_0335"]:
-        afternoon_candidates = generate_candidates_from_average(st.session_state.afternoon_collected_values)
-        existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Closing (4:30 PM Target)"), None)
-        if not existing:
-            st.session_state.history_data.append({
-                "Date": current_date_str,
-                "Session": "Afternoon Closing (4:30 PM Target)",
-                "Candidate Set": afternoon_candidates,
-                "Actual Value": "Pending"
-            })
-        st.session_state.auto_triggered["Afternoon_0335"] = True
+if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afternoon_0335"]:
+    afternoon_candidates = generate_candidates_from_average(st.session_state.afternoon_collected_values)
+    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Closing (4:30 PM Target)"), None)
+    if not existing:
+        st.session_state.history_data.append({
+            "Date": current_date_str,
+            "Session": "Afternoon Closing (4:30 PM Target)",
+            "Candidate Set": afternoon_candidates,
+            "Actual Value": "Pending"
+        })
+    st.session_state.auto_triggered["Afternoon_0335"] = True
 
 # --- UI Sessions ---
 st.subheader("🌅 Morning Session (12:01 PM Closing Target)")
 st.text(f"• စုဆောင်းနေသည့်ဒေတာအရေအတွက်: {len(st.session_state.morning_collected_values)} ခု")
 if now_time >= morning_cutoff:
-    morning_res = next((item["Candidate Set"] for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), "င်္N/A")
+    morning_res = next((item["Candidate Set"] for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), "N/A")
     st.success(f"🎯 တွက်ချက်ပြီးသော Candidate များ: **{morning_res}**")
 else:
     st.info("⏳ ၁၁:၃၀ AM တွင် Candidate များ အလိုအလျောက် ထွက်လာပါမည်။")
