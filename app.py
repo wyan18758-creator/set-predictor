@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("📈 SET Total Value Prediction Dashboard")
-st.markdown("API မှ ရလာသော Real Data များကို စစ်ဆေးခြင်း။")
+st.markdown("Thailand SET Market ဒေတာများကို အမှန်ကန်ဆုံး ဖမ်းယူပြသပေးမည့်စနစ်။")
 
 # --- Timezone Setup (Myanmar Time = UTC +6:30) ---
 mm_offset = timezone(timedelta(hours=6, minutes=30))
@@ -33,28 +33,25 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0335": False}
 
-# --- EODHD API Full Debugging to find the exact VALUE field ---
+# --- Fetch from EODHD API with Correct SET Ticker ---
 def fetch_live_total_value_from_eodhd():
     api_token = "6ac1dfd4509a07.37594523"
-    url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
+    # Thailand SET Index အတွက် Ticker ကို SET.SET သို့ ပြောင်းလဲစမ်းသပ်ခြင်း
+    url = f"https://eodhd.com/api/real-time/SET.SET?api_token={api_token}&fmt=json"
     
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            # API မှလာသော Data အားလုံးကို မျက်နှာပြင်ပေါ်တွင် အသေးစိတ်ပြသရန်
             st.write("🔍 API Raw Data အပြည့်အစုံ:", data)
             
-            # အကယ်၍ turnover သို့မဟုတ် volume ထဲတွင် တန်ဖိုးအမှန် ပါရှိပါက
-            for key in ["turnover", "volume", "value", "market_cap", "close"]:
-                if key in data and float(data[key]) > 10000:
-                    return float(data[key])
-            
-            return float(data.get("close", 0))
+            val = float(data.get("close", data.get("price", 0)))
+            if val > 0:
+                return val
     except Exception as e:
         st.error(f"API Error: {e}")
     
-    return 31350.28
+    return 0.0
 
 # --- Helper Function: Generate 5 Candidates ---
 def generate_candidates_from_average(value_list):
@@ -144,7 +141,7 @@ st.subheader("🌇 Afternoon Session (4:30 PM Closing Target)")
 st.text(f"• စုဆောင်းနေသည့်ဒေတာအရေအတွက်: {len(st.session_state.afternoon_collected_values)} ခု")
 if now_time >= afternoon_cutoff:
     afternoon_res = next((item["Candidate Set"] for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Closing (4:30 PM Target)"), "N/A")
-    st.success(f"🎯 2တွက်ချက်ပြီးသော Candidate များ: **{afternoon_res}**")
+    st.success(f"🎯 တွက်ချက်ပြီးသော Candidate များ: **{afternoon_res}**")
 else:
     st.info("⏳ ၃:၃၅ PM တွင် Candidate များ အလိုအလျောက် ထွက်လာပါမည်။")
 
