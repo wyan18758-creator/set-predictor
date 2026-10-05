@@ -105,7 +105,6 @@ st.markdown("---")
 # --- Time Range & Data Accumulation Logic ---
 now_time = current_time_mm.time()
 
-# Session Windows
 morning_market_open = datetime.strptime("09:30:00", "%H:%M:%S").time()
 morning_trigger_time = datetime.strptime("11:30:00", "%H:%M:%S").time()
 morning_market_close = datetime.strptime("12:01:00", "%H:%M:%S").time()
@@ -114,14 +113,12 @@ afternoon_market_open = datetime.strptime("14:00:00", "%H:%M:%S").time()
 afternoon_trigger_time = datetime.strptime("15:30:00", "%H:%M:%S").time()
 afternoon_market_close = datetime.strptime("16:10:00", "%H:%M:%S").time()
 
-# Data Collection (Morning: 09:30 to 11:30 for prediction calculation)
-if morning_market_open <= now_time <= morning_trigger_time:
+if morning_market_open <= now_time <= morning_market_close:
     if current_live_val > 0:
         if not st.session_state.morning_collected_values or st.session_state.morning_collected_values[-1] != current_live_val:
             st.session_state.morning_collected_values.append(current_live_val)
 
-# Data Collection (Afternoon: 14:00 to 15:30 for prediction calculation)
-if afternoon_market_open <= now_time <= afternoon_trigger_time:
+if afternoon_market_open <= now_time <= afternoon_market_close:
     if current_live_val > 0:
         if not st.session_state.afternoon_collected_values or st.session_state.afternoon_collected_values[-1] != current_live_val:
             st.session_state.afternoon_collected_values.append(current_live_val)
@@ -129,12 +126,12 @@ if afternoon_market_open <= now_time <= afternoon_trigger_time:
 # --- Automatic Triggers at 11:30 AM & 3:30 PM ---
 if now_time >= morning_trigger_time and not st.session_state.auto_triggered["Morning_1130"]:
     morning_candidates, morning_mom = generate_momentum_candidates(st.session_state.morning_collected_values)
-    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Session (For 12:01 PM Target)"), None)
+    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning (12:01 Target)"), None)
     if not existing:
         st.session_state.history_data.append({
             "Date": current_date_str,
-            "Session": "Morning Session (For 12:01 PM Target)",
-            "Candidates (3 Digits)": morning_candidates,
+            "Session": "Morning (12:01 Target)",
+            "Candidates": morning_candidates,
             "Momentum Status": morning_mom,
             "Actual": "Pending"
         })
@@ -142,12 +139,12 @@ if now_time >= morning_trigger_time and not st.session_state.auto_triggered["Mor
 
 if now_time >= afternoon_trigger_time and not st.session_state.auto_triggered["Afternoon_0330"]:
     afternoon_candidates, afternoon_mom = generate_momentum_candidates(st.session_state.afternoon_collected_values)
-    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Session (For 4:10 PM Target)"), None)
+    existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon (4:10 Target)"), None)
     if not existing:
         st.session_state.history_data.append({
             "Date": current_date_str,
-            "Session": "Afternoon Session (For 4:10 PM Target)",
-            "Candidates (3 Digits)": afternoon_candidates,
+            "Session": "Afternoon (4:10 Target)",
+            "Candidates": afternoon_candidates,
             "Momentum Status": afternoon_mom,
             "Actual": "Pending"
         })
@@ -167,10 +164,12 @@ if st.session_state.morning_collected_values:
         st.write(st.session_state.morning_collected_values)
 
 if now_time >= morning_trigger_time:
-    m_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Session (For 12:01 PM Target)"), None)
+    m_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning (12:01 Target)"), None)
     if m_item:
-        st.success(f"🎯 ၁၁:၃၀ တွင် ထွက်လာသော (၁၂:၀၁ ပစ်မှတ်အတွက်) Candidate ၃ လုံး: **{m_item['Candidates (3 Digits)]}**")
-        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{m_item['Momentum Status']}**")
+        cand_val = m_item['Candidates']
+        mom_val = m_item['Momentum Status']
+        st.success(f"🎯 ၁၁:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{cand_val}**")
+        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{mom_val}**")
 else:
     st.info("⏳ မနက် ၁၁:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
 
@@ -190,10 +189,12 @@ if st.session_state.afternoon_collected_values:
         st.write(st.session_state.afternoon_collected_values)
 
 if now_time >= afternoon_trigger_time:
-    a_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Session (For 4:10 PM Target)"), None)
+    a_item = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon (4:10 Target)"), None)
     if a_item:
-        st.success(f"🎯 ၃:၃၀ တွင် ထွက်လာသော (၄:၁၀ ပစ်မှတ်အတွက်) Candidate ၃ လုံး: **{a_item['Candidates (3 Digits)]}**")
-        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{a_item['Momentum Status']}**")
+        cand_val_a = a_item['Candidates']
+        mom_val_a = a_item['Momentum Status']
+        st.success(f"🎯 ၃:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{cand_val_a}**")
+        st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{mom_val_a}**")
 else:
     st.info("⏳ နေ့လယ် ၃:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
 
@@ -207,6 +208,5 @@ if len(st.session_state.history_data) > 0:
 else:
     st.info("လောလောဆယ် မှတ်တမ်း မရှိသေးပါ။")
 
-# Auto refresh every 60 seconds
 time.sleep(60)
 st.rerun()
