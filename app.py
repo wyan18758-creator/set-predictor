@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("📈 SET Total Value Prediction Dashboard")
-st.markdown("Thailand SET Market ဒေတာများကို အမှန်ကန်ဆုံး ဖမ်းယူပြသပေးမည့်စနစ်။")
+st.markdown("API ဒေတာများကို အမှန်ကန်ဆုံး ဖမ်းယူပြသပေးမည့်စနစ်။")
 
 # --- Timezone Setup (Myanmar Time = UTC +6:30) ---
 mm_offset = timezone(timedelta(hours=6, minutes=30))
@@ -33,11 +33,11 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0335": False}
 
-# --- Fetch from EODHD API with Correct SET Ticker ---
+# --- Fetch from EODHD API with Safe Parsing for 'NA' ---
 def fetch_live_total_value_from_eodhd():
     api_token = "6ac1dfd4509a07.37594523"
-    # Thailand SET Index အတွက် Ticker ကို SET.SET သို့ ပြောင်းလဲစမ်းသပ်ခြင်း
-    url = f"https://eodhd.com/api/real-time/SET.SET?api_token={api_token}&fmt=json"
+    # လိုအပ်ပါက Ticker ကို SET.INDX သို့မဟုတ် SET.SET ပြောင်းလဲစမ်းသပ်နိုင်သည်
+    url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
     
     try:
         response = requests.get(url, timeout=5)
@@ -45,9 +45,16 @@ def fetch_live_total_value_from_eodhd():
             data = response.json()
             st.write("🔍 API Raw Data အပြည့်အစုံ:", data)
             
-            val = float(data.get("close", data.get("price", 0)))
-            if val > 0:
-                return val
+            # 'NA' သို့မဟုတ် တန်ဖိုးမရှိသည်များကို စစ်ဆေးခြင်း
+            close_val = data.get("close")
+            if close_val and close_val != "NA":
+                return float(close_val)
+            
+            # အကယ်၍ close မှာ NA ဖြစ်နေပါက previousClose ကို သုံးရန်
+            prev_val = data.get("previousClose")
+            if prev_val and prev_val != "NA":
+                return float(prev_val)
+                
     except Exception as e:
         st.error(f"API Error: {e}")
     
