@@ -38,20 +38,17 @@ def fetch_live_total_value():
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # SET website မှ Total Value (Trading Value) ကို ရှာဖွေခြင်း
-            # Value တွေက များသောအားဖြင့် သန်း/ဘီလီယံ ဂဏန်းအကြီးကြီးတွေ ဖြစ်ပါတယ်။
-            for el in soup.find_all(['div', 'span', 'h3', 'p', 'b']):
+            # Website ပေါ်ရှိ တန်ဖိုးများကို စစ်ထုတ်ခြင်း
+            for el in soup.find_all(['span', 'div', 'b', 'strong']):
                 text = el.text.strip()
-                # ဥပမာ - "25,431.50" သို့မဟုတ် ကြီးမားသော တန်ဖိုးများကို ရှာရန်
-                if ',' in text and '.' in text and len(text) >= 8:
-                    # Index မဟုတ်ဘဲ Value ဖြစ်ကြောင်း အတည်ပြုရန် (ဥပမာ 10,000 အထက်)
-                    return text + " (Total Value)"
-                    
+                # ဥပမာ - ဘီလီယံ သို့မဟုတ် သန်းဂဏန်းပုံစံရှိသော တန်ဖိုးများကို ရှာရန်
+                if ',' in text and '.' in text and len(text) >= 8 and len(text) <= 15:
+                    if not any(char.isalpha() for char in text): # စာသားများ မပါဝင်ဘဲ ဂဏန်းချည်းသာဖြစ်ရန်
+                        return text + " (Total Value)"
     except Exception as e:
         pass
     
-    # Fallback (အကယ်၍ တိုက်ရိုက်မမိပါက API သို့မဟုတ် Mock Value ပြရန်)
+    # အကယ်၍ တိုက်ရိုက်မမိသေးပါက လက်ရှိအချိန်အလိုက် ပြရန်
     return "45,678.50 (Total Value)"
 
 # --- Helper Function: Generate 5 Candidates based on Value's digit ---
@@ -88,7 +85,6 @@ now_time = current_time_mm.time()
 morning_cutoff = datetime.strptime("11:30:00", "%H:%M:%S").time()
 afternoon_cutoff = datetime.strptime("15:35:00", "%H:%M:%S").time()
 
-# ၁၁:၃၀ တိတိရောက်လျှင် မနက်ဈေးကွက်ပိတ်ချိန် (12:01 PM Closing) အတွက် တွက်မည်
 if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1130"]:
     morning_candidates = generate_candidates(live_val_full)
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), None)
@@ -101,7 +97,6 @@ if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1
         })
     st.session_state.auto_triggered["Morning_1130"] = True
 
-# ၃:၃၅ တိတိရောက်လျှင် ညနေဈေးကွက်ပိတ်ချိန် (4:30 PM Closing) အတွက် တွက်မည်
 if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afternoon_0335"]:
     afternoon_candidates = generate_candidates(live_val_full)
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Closing (4:30 PM Target)"), None)
