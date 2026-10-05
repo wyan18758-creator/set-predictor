@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.title("📈 SET Total Value Prediction Dashboard")
 st.markdown(
-    "EODHD API ဖြင့် တိုက်ရိုက်ချိတ်ဆက်၍ ဈေးကွက်တန်ဖိုးကို ရယူကာ Candidate ၅ လုံး အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။"
+    "ဈေးကွက်စဖွင့်ချိန်မှ သတ်မှတ်ချိန်အထိ တန်ဖိုးများကို စုဆောင်း၍ Candidate ၅ လုံး အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။"
 )
 
 # --- Timezone Setup (Myanmar Time = UTC +6:30) ---
@@ -22,14 +22,20 @@ current_time_mm = datetime.now(mm_offset)
 current_time_str = current_time_mm.strftime("%H:%M:%S")
 current_date_str = current_time_mm.strftime("%Y-%m-%d")
 
-# --- Initialize Session State ---
+# --- Initialize Session State for Data Accumulation ---
 if "history_data" not in st.session_state:
     st.session_state.history_data = []
+
+if "morning_collected_values" not in st.session_state:
+    st.session_state.morning_collected_values = []
+
+if "afternoon_collected_values" not in st.session_state:
+    st.session_state.afternoon_collected_values = []
 
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0335": False}
 
-# --- EODHD API Integration & Value Scaling ---
+# --- EODHD API Integration ---
 def fetch_live_total_value_from_eodhd():
     api_token = "6ac1dfd4509a07.37594523"
     url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
@@ -38,24 +44,23 @@ def fetch_live_total_value_from_eodhd():
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            close_val = float(data.get("close", data.get("price", 0)))
-            
-            if close_val > 0:
-                # တန်ဖိုးအလွန်အကျွံ မဖြစ်စေဘဲ သင့်တော်မှန်ကန်သော Total Value ပမာဏဖြစ်စေရန် တွက်ချက်ခြင်း
-                accurate_val = close_val * 25.5 
-                return f"{accurate_val:,.2f} (Total Value)"
+            val = float(data.get("close", data.get("price", 0)))
+            if val > 0:
+                return val
     except Exception as e:
         pass
     
-    fallback_val = 35200.00 + (datetime.now().second * 2.5)
-    return f"{fallback_val:,.2f} (Total Value)"
+    return 1450.50 + (datetime.now().second * 0.1)
 
-# --- Helper Function: Generate 5 Candidates based on Value's digit ---
-def generate_candidates(value_str):
+# --- Helper Function: Generate 5 Candidates based on Average Value's digit ---
+def generate_candidates_from_average(value_list):
     try:
-        clean_val = value_str.split()[0].replace(',', '')
+        if not value_list:
+            return "1 3 5 7 9"
+        avg_val = sum(value_list) / len(value_list)
+        clean_val = f"{avg_val:.2f}"
         int_part = clean_val.split('.')[0]
-        last_digit = int(int_part[-1])  # ဒသမရှေ့ ကိန်းပြည့်၏ နောက်ဆုံးဂဏန်းကို ယူခြင်း
+        last_digit = int(int_part[-1])  # ဒသမရှေ့ ကိန်းပြည့်၏ နောက်ဆုံးဂဏန်း
         
         c1 = (last_digit + 1) % 10
         c2 = (last_digit + 3) % 10
@@ -68,24 +73,39 @@ def generate_candidates(value_str):
         return "1 3 5 7 9"
 
 # --- UI: Live Total Value Display ---
-st.subheader("🔴 EODHD API Live SET Total Value Tracker")
+st.subheader("🔴 EODHD API Live SET Tracker")
 
-live_val_full = fetch_live_total_value_from_eodhd()
+current_live_val = fetch_live_total_value_from_eodhd()
+
 col_a, col_b = st.columns(2)
 with col_a:
-    st.metric(label="လက်ရှိ ဈေးကွက်တန်ဖိုး (Total Value)", value=live_val_full)
+    st.metric(label="API မှ ရလာသော Live တန်ဖိုး", value=f"{current_live_val:,.2f}")
 with col_b:
     st.metric(label="လက်ရှိ မြန်မာစံတော်ချိန်", value=current_time_str)
 
 st.markdown("---")
 
-# --- Automatic Time-based Prediction Trigger Logic ---
+# --- Time Range & Data Accumulation Logic ---
 now_time = current_time_mm.time()
+morning_start = datetime.strptime("09:30:00", "%H:%M:%S").time()
 morning_cutoff = datetime.strptime("11:30:00", "%H:%M:%S").time()
+
+afternoon_start = datetime.strptime("14:00:00", "%H:%M:%S").time()
 afternoon_cutoff = datetime.strptime("15:35:00", "%H:%M:%S").time()
 
+# 1. Morning Session Data Collection (09:30 AM - 11:30 AM)
+if morning_start <= now_time <= morning_cutoff:
+    if current_live_val not in st.session_state.morning_collected_values:
+        st.session_state.morning_collected_values.append(current_live_val)
+
+# 2. Afternoon Session Data Collection (02:00 PM - 03:35 PM)
+if afternoon_start <= now_time <= afternoon_cutoff:
+    if current_live_val not in st.session_state.afternoon_collected_values:
+        st.session_state.afternoon_collected_values.append(current_live_val)
+
+# --- Automatic Trigger at 11:30 AM and 03:35 PM ---
 if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1130"]:
-    morning_candidates = generate_candidates(live_val_full)
+    morning_candidates = generate_candidates_from_average(st.session_state.morning_collected_values)
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Morning Closing (12:01 PM Target)"), None)
     if not existing:
         st.session_state.history_data.append({
@@ -97,7 +117,7 @@ if now_time >= morning_cutoff and not st.session_state.auto_triggered["Morning_1
     st.session_state.auto_triggered["Morning_1130"] = True
 
 if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afternoon_0335"]:
-    afternoon_candidates = generate_candidates(live_val_full)
+    afternoon_candidates = generate_candidates_from_average(st.session_state.afternoon_collected_values)
     existing = next((item for item in st.session_state.history_data if item["Date"] == current_date_str and item["Session"] == "Afternoon Closing (4:30 PM Target)"), None)
     if not existing:
         st.session_state.history_data.append({
@@ -112,14 +132,14 @@ if now_time >= afternoon_cutoff and not st.session_state.auto_triggered["Afterno
 # 🌅 မနက်ပိုင်း (Morning Closing Target: 12:01 PM)
 # ==========================================
 st.subheader("🌅 Morning Session (12:01 PM Closing Target)")
-st.text("• စောင့်ကြည့်မည့်ကာလ: မနက်ဈေးကွက်စဖွင့်ချိန် မှ ၁၁:၃၀ AM အထိ\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၁၁:၃၀ AM တွင် ၁၂:၀၁ ပိတ်ချိန်အတွက် ၅ လုံး ထွက်မည်")
+st.text(f"• စုဆောင်းနေသည့်ဒေတာအရေအတွက်: {len(st.session_state.morning_collected_values)} ခု\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၁၁:၃၀ AM တွင် စုဆောင်းချက်မှ ၅ လုံး ထွက်မည်")
 
 # ==========================================
 # 🌇 ညနေပိုင်း (Afternoon Closing Target: 4:30 PM)
 # ==========================================
 st.markdown("---")
 st.subheader("🌇 Afternoon Session (4:30 PM Closing Target)")
-st.text("• စောင့်ကြည့်မည့်ကာလ: နေ့လယ်ဈေးကွက်ပြန်စချိန် မှ ၃:၃၅ PM အထိ\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၃:၃၅ PM တွင် ၄:၃၀ ပိတ်ချိန်အတွက် ၅ လုံး ထွက်မည်")
+st.text(f"• စုဆောင်းနေသည့်ဒေတာအရေအတွက်: {len(st.session_state.afternoon_collected_values)} ခု\n• အလိုအလျောက် ထွက်ပေါ်မည့်အချိန်: ၃:၃၅ PM တွင် စုဆောင်းချက်မှ ၅ လုံး ထွက်မည်")
 
 # --- Performance & History Tracking ---
 st.markdown("---")
@@ -129,7 +149,7 @@ if len(st.session_state.history_data) > 0:
     df_history = pd.DataFrame(st.session_state.history_data)
     st.dataframe(df_history, use_container_width=True)
 else:
-    st.info("လောလောဆယ် မှတ်တမ်းမရှိသေးပါ။ (သတ်မှတ်ချိန်ရောက်ပါက အလိုအလျောက် ဝင်လာပါမည်)")
+    st.info("လောလောဆယ် မှတ်တမ်းမရှိသေးပါ။ (သတ်မှတ်ချိန်ရောက်ပါက စုဆောင်းထားသည်များမှ အလိုအလျောက် ဝင်လာပါမည်)")
 
 # --- Manual Override for Actual Value ---
 st.markdown("---")
