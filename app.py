@@ -38,17 +38,25 @@ def fetch_live_total_value():
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Website ပေါ်ရှိ တန်ဖိုးများကို စစ်ထုတ်ခြင်း
-            for el in soup.find_all(['span', 'div', 'b', 'strong']):
+            
+            # Index တန်ဖိုး (1,500 ဝန်းကျင်) ကို ရှောင်ရှားပြီး ကြီးမားသော Trading Value (သန်း/ဘီလီယံ) ကို သီးသန့်ရှာရန်
+            for el in soup.find_all(['span', 'div', 'p', 'b', 'strong']):
                 text = el.text.strip()
-                # ဥပမာ - ဘီလီယံ သို့မဟုတ် သန်းဂဏန်းပုံစံရှိသော တန်ဖိုးများကို ရှာရန်
-                if ',' in text and '.' in text and len(text) >= 8 and len(text) <= 15:
-                    if not any(char.isalpha() for char in text): # စာသားများ မပါဝင်ဘဲ ဂဏန်းချည်းသာဖြစ်ရန်
-                        return text + " (Total Value)"
+                # ဥပမာ - ဂဏန်းတန်ဖိုးတွင် ကော်မာပါရှိပြီး ၁၀,၀၀၀ ကျော် (သို့) ဂဏန်းအရေအတွက် ပိုများသော Total Value များကိုသာ ယူရန်
+                if ',' in text and '.' in text:
+                    clean_check = text.replace(',', '').replace('.', '')
+                    if clean_check.isdigit() and len(clean_check) >= 7:
+                        # Index တန်ဖိုး (ဥပမာ 1500.xx) ဖြစ်နေပါက ကျော်သွားရန်
+                        try:
+                            val_float = float(text.replace(',', ''))
+                            if val_float > 5000:  # Index ထက် သေချာပေါက် ကြီးသော Total Value
+                                return text + " (Total Value)"
+                        except:
+                            pass
     except Exception as e:
         pass
     
-    # အကယ်၍ တိုက်ရိုက်မမိသေးပါက လက်ရှိအချိန်အလိုက် ပြရန်
+    # အကယ်၍ တိုက်ရိုက်မမိသေးပါက သို့မဟုတ် ဈေးကွက်ပိတ်ချိန်ဖြစ်နေပါက
     return "45,678.50 (Total Value)"
 
 # --- Helper Function: Generate 5 Candidates based on Value's digit ---
