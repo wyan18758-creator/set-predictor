@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pytz
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -17,6 +18,12 @@ st.markdown(
     "ဈေးကွက်ဖွင့်ချိန်မှ ပိတ်ချိန်အထိ Live Value များကို တိုက်ရိုက်ပြသပေးခြင်းနှင့် သတ်မှတ်ချိန်အလိုက် Candidate ၅ လုံး အလိုအလျောက် ခန့်မှန်းထုတ်ပေးမည့်စနစ်။"
 )
 
+# --- Timezone Setup (Myanmar Time) ---
+mm_tz = pytz.timezone('Asia/Yangon')
+current_time_mm = datetime.now(mm_tz)
+current_time_str = current_time_mm.strftime("%H:%M:%S")
+current_date_str = current_time_mm.strftime("%Y-%m-%d")
+
 # --- Initialize Session State ---
 if "history_data" not in st.session_state:
     st.session_state.history_data = []
@@ -24,36 +31,44 @@ if "history_data" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0335": False}
 
-# --- Live Market Value Fetcher (ဈေးကွက်ဖွင့်ချိန်မှ ပိတ်ချိန်အထိ တိုက်ရိုက်ပြရန်) ---
+# --- Real Live Market Value Fetcher from SET ---
 def fetch_live_market_value():
     try:
         url = "https://www.set.or.th/en/home"
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Live SET Total Value ကို Parse လုပ်ရန် (လက်ရှိ Mock Value ထည့်ထားသည်)
-            live_val = "1,234.56 (Live)"
-            return live_val
+            
+            # SET website ပေါ်ရှိ Live index သို့မဟုတ် total value ကို ရှာဖွေခြင်း
+            # Website structure အလိုက် class သို့မဟုတ် tag များကို ဖတ်ယူသည်
+            val_element = soup.find('h3', class_='market-info-value') # သို့မဟုတ် သင့်တော်သော selector
+            if val_element:
+                return val_element.text.strip() + " (Live)"
+            
+            # Fallback ရှာဖွေမှု (General search for numbers with commas/decimals)
+            for span in soup.find_all(['span', 'div', 'h3']):
+                text = span.text.strip()
+                if ',' in text and '.' in text and len(text) < 15:
+                    return text + " (Live)"
+                    
     except Exception as e:
         pass
-    return "Connecting Live..."
+    return "Fetching Live Value..."
 
 # --- UI: Live Market Display ---
 st.subheader("🔴 Live Market Value Tracker")
-current_time_str = datetime.now().strftime("%H:%M:%S")
-current_date_str = datetime.now().strftime("%Y-%m-%d")
 
 col_a, col_b = st.columns(2)
 with col_a:
     st.metric(label="လက်ရှိ ဈေးကွက်တန်ဖိုး (Live Price)", value=fetch_live_market_value())
 with col_b:
-    st.metric(label="လက်ရှိ အချိန် (Current Time)", value=current_time_str)
+    st.metric(label="လက်ရှိ မြန်မာစံတော်ချိန်", value=current_time_str)
 
 st.markdown("---")
 
 # --- Automatic Time-based Prediction Trigger Logic ---
-now_time = datetime.now().time()
+now_time = current_time_mm.time()
 morning_cutoff = datetime.strptime("11:30:00", "%H:%M:%S").time()
 afternoon_cutoff = datetime.strptime("15:35:00", "%H:%M:%S").time()
 
