@@ -30,25 +30,20 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0330": False}
 
-# --- Fetch Live SET Value from New API ---
+# --- Fetch Live SET Value from API ---
 def fetch_live_set_value():
-    url = "https://api.thaistock2d.com/live[span_1](start_span)"[span_1](end_span)
-    
+    url = "https://api.thaistock2d.com/live"
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            # ပုံပါ JSON structure အတိုင်း live -> set ကို ယူမည်[span_2](start_span)[span_2](end_span)
-            live_data = data.get("live", {})[span_3](start_span)[span_3](end_span)
-            set_str = live_data.get("set")[span_4](start_span)[span_4](end_span)
-            
+            live_data = data.get("live", {})
+            set_str = live_data.get("set")
             if set_str and set_str != "NA":
-                # ဥပမာ "1,584.56" ပါလာရင် ကော်မာ (,) ဖြုတ်ပြီး float ပြောင်းမည်
                 clean_set_str = str(set_str).replace(",", "")
                 return float(clean_set_str)
     except Exception as e:
         pass
-    
     return None
 
 # --- Advanced Helper Function: Momentum & Decimal Last Digit ---
