@@ -30,26 +30,26 @@ if "afternoon_collected_values" not in st.session_state:
 if "auto_triggered" not in st.session_state:
     st.session_state.auto_triggered = {"Morning_1130": False, "Afternoon_0330": False}
 
-# --- Fetch Live SET Value Directly ---
+# --- Fetch Live SET Value from New API ---
 def fetch_live_set_value():
-    api_token = "6ac1dfd4509a07.37594523"
-    url = f"https://eodhd.com/api/real-time/SET.INDX?api_token={api_token}&fmt=json"
+    url = "https://api.thaistock2d.com/live[span_1](start_span)"[span_1](end_span)
     
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
+            # ပုံပါ JSON structure အတိုင်း live -> set ကို ယူမည်[span_2](start_span)[span_2](end_span)
+            live_data = data.get("live", {})[span_3](start_span)[span_3](end_span)
+            set_str = live_data.get("set")[span_4](start_span)[span_4](end_span)
             
-            val_str = data.get("previousClose")
-            if not val_str or val_str == "NA":
-                val_str = data.get("close")
-                
-            if val_str and val_str != "NA":
-                return float(val_str)
+            if set_str and set_str != "NA":
+                # ဥပမာ "1,584.56" ပါလာရင် ကော်မာ (,) ဖြုတ်ပြီး float ပြောင်းမည်
+                clean_set_str = str(set_str).replace(",", "")
+                return float(clean_set_str)
     except Exception as e:
         pass
     
-    return None  # Fallback အတု မသုံးတော့ဘဲ None ပြန်မည်
+    return None
 
 # --- Advanced Helper Function: Momentum & Decimal Last Digit ---
 def generate_momentum_candidates(value_list):
