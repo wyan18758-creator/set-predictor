@@ -50,7 +50,7 @@ def fetch_live_set_value():
 def generate_momentum_candidates(value_list):
     try:
         if not value_list or len(value_list) < 2:
-            return "1 5 9", "Neutral (Normal)"
+            return "ဒေတာ စုဆောင်းနေဆဲပါ...", "Waiting for more data"
         
         avg_val = sum(value_list) / len(value_list)
         clean_val = f"{avg_val:.2f}"
@@ -79,7 +79,7 @@ def generate_momentum_candidates(value_list):
         
         return f"{c1} {c2} {c3}", momentum_status
     except:
-        return "1 5 9", "Neutral"
+        return "ဒေတာ စုဆောင်းနေဆဲပါ...", "Waiting for more data"
 
 # ==========================================
 # 🔴 1. TOP SECTION: REALTIME LIVE SET DISPLAY
@@ -165,7 +165,9 @@ if now_time >= morning_trigger_time:
         st.success(f"🎯 ၁၁:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{m_item['Candidates']}**")
         st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{m_item['Momentum Status']}**")
 else:
-    st.info("⏳ မနက် ၁၁:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
+    # Live အနေနဲ့ လက်ရှိစုဆောင်းထားတာတွေနဲ့ တွက်ပြချက်ကို ကြည့်ချင်ရင်
+    live_m_cand, live_m_mom = generate_momentum_candidates(st.session_state.morning_collected_values)
+    st.info(f"⏳ မနက် ၁၁:၃၀ မတိုင်ခင် လက်ရှိ Candidate ခန့်မှန်းချက်: **{live_m_cand}**")
 
 st.markdown("---")
 
@@ -188,7 +190,8 @@ if now_time >= afternoon_trigger_time:
         st.success(f"🎯 ၃:၃၀ တွင် ထွက်လာသော Candidate ၃ လုံး: **{a_item['Candidates']}**")
         st.info(f"📊 ဈေးကွက်အရှိန်အဟုန်: **{a_item['Momentum Status']}**")
 else:
-    st.info("⏳ နေ့လယ် ၃:၃၀ တွင် Candidate များ ထွက်လာပါမည်။")
+    live_a_cand, live_a_mom = generate_momentum_candidates(st.session_state.afternoon_collected_values)
+    st.info(f"⏳ နေ့လယ် ၃:၃၀ မတိုင်ခင် လက်ရှိ Candidate ခန့်မှန်းချက်: **{live_a_cand}**")
 
 # ==========================================
 # 📊 4. HISTORY & TRACKING
